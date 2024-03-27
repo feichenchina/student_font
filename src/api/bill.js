@@ -33,3 +33,11 @@ export function getStudentBill(params) {
     })
 }
 
+// 获取指定账单学生的支付情况列表
+export function getStudentBillStatusList(params) {
+    return request({
+        url: '/api/teacher/get_student_bill_status_list',
+        method: 'get',
+        params,
+    })
+}

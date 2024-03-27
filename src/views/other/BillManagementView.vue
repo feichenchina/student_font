@@ -39,6 +39,14 @@
             @click="sendStudentBill(scope.row.id)"
             >发送账单</el-button
           >
+
+          <el-button
+            size="small"
+            type="primary"
+            round
+            @click="viewStudentBill(scope.row)"
+            >查看账单</el-button
+          >
         </template>
       </el-table-column>
     </el-table>
@@ -86,13 +94,61 @@
         />
       </div>
     </el-dialog>
+
+    <!-- 查看账单 -->
+    <el-dialog :before-close="beforeCloseFuction" title="查看账单支付情况" :visible.sync="viewBillStatusVisible" >
+      <div>
+        <el-table :data="viewBillStatusTableData" border style="width: 100%">
+          <el-table-column
+            prop="student.name"
+            label="学生"
+            width="180"
+            align="center"
+          >
+          </el-table-column>
+          <el-table-column
+            label="课程名"
+            width="180"
+            align="center"
+          >
+          <template>{{ viewCorseName }}</template></el-table-column
+          >
+          </el-table-column>
+          
+          <el-table-column label="费用" align="center"
+            ><template>{{ viewCorseCost }}</template></el-table-column
+          >
+          <el-table-column
+            prop="status_description"
+            label="支付状态"
+            align="center"
+          >
+          <template slot-scope="scope">
+        <span :style="{ color: scope.row.status_description === '已支付' ? 'green' : 'red' }">{{ scope.row.status_description }}</span>
+      </template>
+          </el-table-column>
+        </el-table>
+        <pagination
+          v-show="viewBillStatusTotal > 0"
+          :total="viewBillStatusTotal"
+          :page.sync="viewBillStatusListQuery.page"
+          :limit.sync="viewBillStatusListQuery.page_size"
+          @pagination="getStudentBillStatus"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import Pagination from "@/components/Pagination";
 import { NotBillCourseList } from "@/api/course";
-import { addBill, listBill, sendBill } from "@/api/bill";
+import {
+  addBill,
+  listBill,
+  sendBill,
+  getStudentBillStatusList,
+} from "@/api/bill";
 export default {
   components: { Pagination },
   data() {
@@ -110,6 +166,18 @@ export default {
         page: 1,
         page_size: 10,
       },
+
+      viewBillStatusVisible: false,
+      viewBillStatusTableData: [],
+      viewBillStatusTotal: 0,
+      viewBillStatusListQuery: {
+        page: 1,
+        page_size: 5,
+      },
+      viewBillId: 0,
+      viewBillLoading: false,
+      viewCorseName: "",
+      viewCorseCost: 0,
     };
   },
   created() {
@@ -143,6 +211,20 @@ export default {
       this.courseTotal = 0;
       this.courseTableData = [];
       this.addBillVisible = false;
+    },
+
+    // 查看账单列表关闭前执行
+    beforeCloseFuction() {
+      this.viewBillStatusVisible = false;
+      this.viewBillStatusTableData = [];
+      this.viewBillStatusTotal = 0;
+      (this.viewBillStatusListQuery = {
+        page: 1,
+        page_size: 5,
+      }),
+        (this.viewBillId = 0);
+      this.viewCorseName = "";
+      this.viewCorseCost = 0;
     },
 
     // 获取未创建账单的课程列表
@@ -179,6 +261,41 @@ export default {
         await this.getBillList();
       } catch (e) {
         this.destoryAddCotent();
+      }
+    },
+
+    // 获取账单学生支付情况列表
+    async getStudentBillStatus() {
+      try {
+        this.viewBillLoading = true;
+        const { data: list } = await getStudentBillStatusList({
+          page: this.viewBillStatusListQuery.page,
+          page_size: this.viewBillStatusListQuery.page_size,
+          bill_id: this.viewBillId,
+        });
+        this.viewBillStatusTableData = list.list;
+        this.viewBillStatusTotal = list.meta.total;
+        this.viewBillStatusListQuery.page = list.meta.currentPage;
+        this.viewBillLoading = false;
+        this.$message({ message: "成功", type: "success" });
+      } catch (e) {
+        this.viewBillLoading = false;
+        this.$message({ message: e, type: "error" });
+      }
+    },
+
+    // 查看账单
+    async viewStudentBill(row) {
+      try {
+        this.viewBillStatusVisible = true;
+        this.viewBillLoading = true;
+        this.viewBillId = row.id;
+        this.viewCorseName = row.course.course_name;
+        this.viewCorseCost = row.course.cost;
+        await this.getStudentBillStatus();
+        this.viewBillLoading = false;
+      } catch (e) {
+        this.viewBillLoading = false;
       }
     },
   },
